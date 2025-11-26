@@ -70,7 +70,7 @@ This project demonstrates **real-time communication, socket programming, and col
 
 | Workspace View | Invite Link Modal |
 |----------------|-----------------|
-| ![Workspace](screenshots/invite.png) | 
+| ![Workspace](screenshots/Invite.png) | 
 
 
 ---
@@ -172,9 +172,8 @@ npm run dev
 
 ## Future Improvements
 - Video/audio chat in rooms  
-- Role-based permissions for room admins  
-- File sharing inside rooms  
-- Rich-text collaborative editor  
+ - File sharing inside rooms  
+  
 
 ---
 
