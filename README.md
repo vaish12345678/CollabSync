@@ -145,18 +145,18 @@ npm run dev
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET    | `/api/rooms` | Fetch all rooms |
-| POST   | `/api/rooms` | Create new room |
-| GET    | `/api/rooms/:id` | Fetch room by ID |
-| PUT    | `/api/rooms/:id` | Update room info |
+| POST   | `/api/workspace/create` | Create new room |
+| GET    | `/api/workspace/:id` | Fetch room by ID |
+| PUT    | `/api/workspace/:id` | Update room info |
 
 
 ### Messages / Collaboration
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST   | `/api/messages` | Send message in room |
-| GET    | `/api/messages/:roomId` | Get messages for room |
-| POST   | `/api/collab` | Update collaborative document |
-| GET    | `/api/collab/:roomId` | Fetch latest document state |
+| POST   | `/api/chat/send` | Send message in room |
+| GET    | `/api/chat/workspace/:workspaceId` | Get messages for room |
+| POST   | `/api/notes/update` | Update collaborative document |
+| GET    | `/api/notes/:workspaceId` | Fetch latest document state |
 
 > **Note:** Real-time updates are handled by **Socket.IO**.  
 
