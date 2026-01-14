@@ -1,6 +1,7 @@
 import Note from "../models/Note.js";
 
 // CREATE NOTE
+
 export const createNote = async (req, res) => {
   try {
     const { title, content, workspaceId } = req.body;
@@ -12,6 +13,7 @@ export const createNote = async (req, res) => {
       createdBy: req.user.id,
     });
 
+    
     res.status(201).json({ message: "Note created", note });
   } catch (error) {
     res.status(500).json({ error: error.message });

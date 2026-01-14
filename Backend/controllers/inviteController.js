@@ -64,6 +64,8 @@ import jwt from "jsonwebtoken";
 //     res.status(500).json({ success: false, message: "Server error", error: error.message });
 //   }
 // };
+
+
 export const inviteToWorkspace = async (req, res) => {
   try {
     const { workspaceId } = req.params;
@@ -124,113 +126,6 @@ export const inviteToWorkspace = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
-
-// Accept invite
-// Accept invite
-// export const acceptInvite = async (req, res) => {
-//   try {
-//     const { token } = req.params;
-
-//     // Verify token
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//     const { workspaceId, inviteeId, inviteId } = decoded;
-
-//     // Find invite
-//     const invite = await Invite.findById(inviteId);
-//     if (!invite) return res.status(404).json({ error: "Invite not found" });
-
-//     // Check if already used
-//     if (invite.status === "accepted")
-//       return res.status(400).json({ error: "Invite already used" });
-
-//     // Find workspace
-//     const workspace = await Workspace.findById(workspaceId);
-//     if (!workspace) return res.status(404).json({ error: "Workspace not found" });
-
-//     // Check if user is already a member
-//     const isAlreadyMember = workspace.members.some(
-//       (member) => member.toString() === inviteeId
-//     );
-//     if (isAlreadyMember)
-//       return res.status(400).json({ error: "Already a member of this workspace" });
-
-//     // Add member to workspace
-//     workspace.members.push(inviteeId);
-//     await workspace.save();
-
-//     // Update invite status
-//     invite.status = "accepted";
-//     invite.usedAt = new Date();
-//     await invite.save();
-
-//     res.json({
-//       message: "Successfully joined workspace",
-//       workspace: {
-//         id: workspace._id,
-//         name: workspace.name,
-//         role: "member",
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Accept invite error:", error);
-
-//     if (error.name === "JsonWebTokenError")
-//       return res.status(400).json({ error: "Invalid token" });
-//     if (error.name === "TokenExpiredError")
-//       return res.status(400).json({ error: "Invite link expired" });
-
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// };
-// Accept invite
-// export const acceptInvite = async (req, res) => {
-//   try {
-//     const { token } = req.params;
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//     const { workspaceId, inviteeId, inviteId } = decoded;
-
-//     const invite = await Invite.findById(inviteId);
-//     if (!invite) return res.status(404).json({ error: "Invite not found" });
-
-//     const workspace = await Workspace.findById(workspaceId);
-//     if (!workspace) return res.status(404).json({ error: "Workspace not found" });
-
-//     const isAlreadyMember = workspace.members.some(
-//       (member) => member.toString() === inviteeId
-//     );
-//     if (isAlreadyMember) return res.status(400).json({ error: "Already a member" });
-
-//     workspace.members.push(inviteeId);
-//     await workspace.save();
-
-//     invite.status = "accepted";
-//     invite.usedAt = new Date();
-//     await invite.save();
-
-//     const userToken = jwt.sign({ id: inviteeId }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-//     // ✅ Set JWT as cookie
-//     res.cookie("token", userToken, {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === "production",
-//       sameSite: "lax",
-//       maxAge: 7 * 24 * 60 * 60 * 1000,
-//     });
-
-//     res.json({
-//       message: "Successfully joined workspace",
-//       workspace: { id: workspace._id, name: workspace.name, role: "member" },
-//     });
-//   } catch (error) {
-//     console.error("Accept invite error:", error);
-//     if (error.name === "JsonWebTokenError")
-//       return res.status(400).json({ error: "Invalid token" });
-//     if (error.name === "TokenExpiredError")
-//       return res.status(400).json({ error: "Invite link expired" });
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// };
-
 
 export const acceptInvite = async (req, res) => {
   try {

@@ -52,6 +52,6 @@ export const login = async (req, res) => {
 
 // Logout
 export const logout = (req, res) => {
-  res.cookie("token", "", { maxAge: 0 });
+  res.cookie("token", " ", { maxAge: 0 });
   res.json({ message: "Logged out" });
 };
