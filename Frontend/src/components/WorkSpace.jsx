@@ -1,5 +1,4 @@
-
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import axios from "../api/axios.js";
@@ -10,9 +9,9 @@ const socket = io("http://localhost:5000", { withCredentials: true });
 export default function Workspace() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
-  const selectedNoteRef = useRef(selectedNote);
 
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -23,12 +22,7 @@ export default function Workspace() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
 
-  // Keep ref updated
-  useEffect(() => {
-    selectedNoteRef.current = selectedNote;
-  }, [selectedNote]);
-
-  // Fetch notes & chat, setup sockets
+  // Fetch notes, chat & setup socket listeners
   useEffect(() => {
     const fetchNotes = async () => {
       try {
@@ -36,7 +30,7 @@ export default function Workspace() {
         setNotes(res.data);
         if (res.data.length > 0) setSelectedNote(res.data[0]);
       } catch (err) {
-        console.error("Error fetching notes:", err);
+        console.error(err);
       }
     };
 
@@ -54,18 +48,20 @@ export default function Workspace() {
 
     socket.emit("joinWorkspace", id);
 
-    // Socket listeners
     socket.on("receiveNoteChange", ({ noteId, content, title }) => {
       setNotes(prev =>
         prev.map(note =>
-          note._id === noteId ? { ...note, content, title: title || note.title } : note
+          note._id === noteId
+            ? { ...note, content, title: title || note.title }
+            : note
         )
       );
 
-      // Update currently selected note if it matches
-      if (selectedNoteRef.current?._id === noteId) {
-        setSelectedNote(prev => ({ ...prev, content, title: title || prev.title }));
-      }
+      setSelectedNote(prev =>
+        prev && prev._id === noteId
+          ? { ...prev, content, title: title || prev.title }
+          : prev
+      );
     });
 
     socket.on("newNote", (newNote) => {
@@ -83,17 +79,22 @@ export default function Workspace() {
     };
   }, [id]);
 
-  // Create new note
+  // Create note
   const createNewNote = async () => {
     try {
-      const res = await axios.post('/notes/create', {
-        title: 'New Note',
-        content: '',
+      const res = await axios.post("/notes/create", {
+        title: "New Note",
+        content: "",
         workspaceId: id
       });
+
       setNotes(prev => [res.data.note, ...prev]);
       setSelectedNote(res.data.note);
-      socket.emit("newNote", { workspaceId: id, note: res.data.note });
+
+      socket.emit("newNote", {
+        workspaceId: id,
+        note: res.data.note
+      });
     } catch (err) {
       console.error(err);
     }
@@ -101,65 +102,68 @@ export default function Workspace() {
 
   // Update note content
   const handleNoteChange = async (content) => {
-    if (!selectedNoteRef.current) return;
+    if (!selectedNote) return;
 
     setSelectedNote(prev => ({ ...prev, content }));
+
     setNotes(prev =>
       prev.map(note =>
-        note._id === selectedNoteRef.current._id ? { ...note, content } : note
+        note._id === selectedNote._id ? { ...note, content } : note
       )
     );
 
     try {
-      await axios.put(`/notes/${selectedNoteRef.current._id}`, {
-        title: selectedNoteRef.current.title,
+      await axios.put(`/notes/${selectedNote._id}`, {
+        title: selectedNote.title,
         content
       });
 
       socket.emit("noteChange", {
         workspaceId: id,
-        noteId: selectedNoteRef.current._id,
+        noteId: selectedNote._id,
         content,
-        title: selectedNoteRef.current.title
+        title: selectedNote.title
       });
     } catch (err) {
-      console.error("Error updating note:", err);
+      console.error(err);
     }
   };
 
   // Update note title
   const handleTitleChange = async (title) => {
-    if (!selectedNoteRef.current) return;
+    if (!selectedNote) return;
 
     setSelectedNote(prev => ({ ...prev, title }));
+
     setNotes(prev =>
       prev.map(note =>
-        note._id === selectedNoteRef.current._id ? { ...note, title } : note
+        note._id === selectedNote._id ? { ...note, title } : note
       )
     );
 
     try {
-      await axios.put(`/notes/${selectedNoteRef.current._id}`, {
+      await axios.put(`/notes/${selectedNote._id}`, {
         title,
-        content: selectedNoteRef.current.content
+        content: selectedNote.content
       });
 
       socket.emit("noteChange", {
         workspaceId: id,
-        noteId: selectedNoteRef.current._id,
-        content: selectedNoteRef.current.content,
+        noteId: selectedNote._id,
+        content: selectedNote.content,
         title
       });
     } catch (err) {
-      console.error("Error updating title:", err);
+      console.error(err);
     }
   };
 
-  // Send chat
+  // Send chat message
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
+
     try {
-      const res = await axios.post('/chat/send', {
+      const res = await axios.post("/chat/send", {
         workspaceId: id,
         message: newMessage
       });
@@ -174,7 +178,7 @@ export default function Workspace() {
 
       setNewMessage("");
     } catch (err) {
-      console.error('Error sending message:', err);
+      console.error(err);
     }
   };
 
@@ -186,16 +190,16 @@ export default function Workspace() {
     try {
       const res = await axios.post(
         `/invite/workspace/${id}/invite`,
-        { email: inviteEmail },
-        { headers: { 'Content-Type': 'application/json' } }
+        { email: inviteEmail }
       );
+
       setInviteLink(res.data.inviteLink);
       setShowInviteModal(false);
       setShowLinkModal(true);
       setInviteEmail("");
     } catch (err) {
-      console.error("Invite failed:", err);
-      alert("Failed to send invite");
+      console.error(err);
+      alert("Invite failed");
     } finally {
       setInviteLoading(false);
     }

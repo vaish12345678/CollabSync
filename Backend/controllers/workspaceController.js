@@ -26,7 +26,9 @@ export const getMyWorkspaces = async (req, res) => {
     const workspaces = await Workspace.find({
       members: req.user.id,
     });
-
+// Query	Returns
+// { members: req.user.id }	All workspaces the user is a member of (creator or invited).
+// { createdBy: req.user.id }	Only workspaces the user created.
     res.status(200).json(workspaces);
   } catch (error) {
     res.status(500).json({ error: error.message });
