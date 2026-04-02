@@ -4,7 +4,10 @@ import { io } from "socket.io-client";
 import axios from "../api/axios.js";
 import InviteModal from "./InviteModal.jsx";
 
-const socket = io("https://collabsync-1-aq1c.onrender.com/", { withCredentials: true });
+const socket = io("https://collabsync-1-aq1c.onrender.com", {
+  withCredentials: true,
+  transports: ["websocket"], // 🔥 FORCE websocket (VERY IMPORTANT)
+});
 
 export default function Workspace() {
   const { id } = useParams();
