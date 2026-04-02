@@ -3,11 +3,12 @@ import User from "../models/User.js"
 // Send a chat message
 // In chatController.js - ENSURE PROPER POPULATION
 // Example in chatController.js
+
 export const sendMessage = async (req, res) => {
   const { workspaceId, message } = req.body;
   const userId = req.user.id; // assuming you have auth middleware
   const user = await User.findById(userId);
-
+ 
   const newMessage = await Chat.create({
     workspace: workspaceId,
     user: userId,

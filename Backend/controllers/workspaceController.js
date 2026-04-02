@@ -1,10 +1,9 @@
 import Workspace from "../models/Workspace.js";
-
 // CREATE WORKSPACE
 export const createWorkspace = async (req, res) => {
   try {
     const { name } = req.body;
-
+    
     const workspace = await Workspace.create({
       name,
       createdBy: req.user.id,
