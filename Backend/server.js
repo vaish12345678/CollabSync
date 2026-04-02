@@ -17,9 +17,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", 
+    origin: "https://collab-sync-mu.vercel.app/", 
     methods: ["GET", "POST"],
-    credentials: false
+    credentials: true,
   }
 });
 
@@ -27,9 +27,9 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "*",
+    origin: "https://collab-sync-mu.vercel.app/",
     
-    credentials:false,
+    credentials:true,
   })
 );
 
