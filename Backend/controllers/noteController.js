@@ -1,7 +1,6 @@
 import Note from "../models/Note.js";
 
 // CREATE NOTE
-
 export const createNote = async (req, res) => {
   try {
     const { title, content, workspaceId } = req.body;

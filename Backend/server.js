@@ -17,22 +17,21 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // frontend Vite server
+    origin: "*", 
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: false
   }
 });
-
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:5173",
-    credentials: true,
+    origin: "*",
+    
+    credentials:false,
   })
 );
-
 
 app.use("/api/auth", authRoutes);
 app.use("/api/workspace", workspaceRoutes);
@@ -43,36 +42,35 @@ app.use("/api/invite", inviteRoutes);
 io.on("connection", (socket) => {
   console.log("A user connected: " + socket.id);
 
-  // Join a workspace room
   socket.on("joinWorkspace", (workspaceId) => {
     socket.join(workspaceId);
     console.log(`User ${socket.id} joined workspace ${workspaceId}`);
   });
 
-  // Listen for note changes
   socket.on("noteChange", ({ workspaceId, noteId, content }) => {
-    // Broadcast to all other users in the room
+  
     socket.to(workspaceId).emit("receiveNoteChange", { noteId, content });
   });
 
-  // Listen for new notes - ADD THIS
+                
   socket.on("newNote", ({ workspaceId, note }) => {
     socket.to(workspaceId).emit("newNote", note);
   });
 
   // Listen for chat messages
   // In your server.js - IMPROVED chat handler
-socket.on("chatMessage", ({ workspaceId, user, message }) => {
-  // Add timestamp to the message
+  socket.on("chatMessage", ({ workspaceId, user, message }) => {
+  
   const chatData = { 
     user, 
     message, 
     createdAt: new Date().toISOString(),
-    _id: Date.now().toString() // Temporary ID for socket messages
+    _id: Date.now().toString() 
   };
   
   io.to(workspaceId).emit("receiveChatMessage", chatData);
 });
+
   socket.on("disconnect", () => {
     console.log("A user disconnected: " + socket.id);
   });
@@ -80,5 +78,6 @@ socket.on("chatMessage", ({ workspaceId, user, message }) => {
 
 
 connectDB();
-server.listen(5000, () => console.log("Server running on port 5000"));
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => console.log("Server running"));
 

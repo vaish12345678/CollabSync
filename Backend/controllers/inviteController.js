@@ -4,183 +4,119 @@ import Workspace from "../models/Workspace.js";
 import User from "../models/User.js";
 import Invite from "../models/Invite.js"
 import jwt from "jsonwebtoken";
-
-// Invite user to workspace
-// Invite user to workspace
-// export const inviteToWorkspace = async (req, res) => {
-//   try {
-//     const { workspaceId } = req.params;
-//     const { email } = req.body;
-
-//     const workspace = await Workspace.findById(workspaceId);
-//     if (!workspace) return res.status(404).json({ message: "Workspace not found" });
-
-//     const currentUserMember = workspace.members.find(
-//       (memberId) => memberId.toString() === req.user.id
-//     );
-//     if (!currentUserMember)
-//       return res.status(403).json({ message: "You are not a member of this workspace" });
-
-//     const userToInvite = await User.findOne({ email });
-//     if (!userToInvite) return res.status(404).json({ message: "User not found" });
-
-//     const alreadyMember = workspace.members.find(
-//       (memberId) => memberId.toString() === userToInvite._id.toString()
-//     );
-//     if (alreadyMember)
-//       return res.status(400).json({ message: "User is already a member of this workspace" });
-
-//     // Generate token FIRST
-//     const inviteToken = jwt.sign(
-//       {
-//         workspaceId,
-//         inviteeId: userToInvite._id,
-//         inviterId: req.user.id,
-//         email,
-//       },
-//       process.env.JWT_SECRET,
-//       { expiresIn: "7d" }
-//     );
-
-//     // THEN create invite
-//     const inviteDoc = await Invite.create({
-//       workspace: workspaceId,
-//       email,
-//       invitedBy: req.user.id,
-//       token: inviteToken, // ✔ NO VALIDATION ERROR
-//       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Invite sent successfully!",
-//       inviteToken,
-//       inviteLink: `http://localhost:5173/accept-invite/${inviteToken}`,
-//     });
-    
-
-//   } catch (error) {
-//     console.error("Invite error:", error);
-//     res.status(500).json({ success: false, message: "Server error", error: error.message });
-//   }
-// };
-
-
 export const inviteToWorkspace = async (req, res) => {
   try {
     const { workspaceId } = req.params;
     const { email } = req.body;
 
     const workspace = await Workspace.findById(workspaceId);
-    if (!workspace) return res.status(404).json({ message: "Workspace not found" });
+    if (!workspace) {
+      return res.status(404).json({ message: "Workspace not found" });
+    }
 
-    const currentUserMember = workspace.members.find(
-      (memberId) => memberId.toString() === req.user.id
+    // check inviter is member
+    const isMember = workspace.members.some(
+      (id) => id.toString() === req.user.id
     );
-    if (!currentUserMember)
-      return res.status(403).json({ message: "You are not a member of this workspace" });
+    if (!isMember) {
+      return res.status(403).json({ message: "Not a workspace member" });
+    }
 
     const userToInvite = await User.findOne({ email });
-    if (!userToInvite) return res.status(404).json({ message: "User not found" });
+    if (!userToInvite) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    const alreadyMember = workspace.members.find(
-      (memberId) => memberId.toString() === userToInvite._id.toString()
+    const alreadyMember = workspace.members.some(
+      (id) => id.toString() === userToInvite._id.toString()
     );
-    if (alreadyMember)
-      return res.status(400).json({ message: "User is already a member" });
+    if (alreadyMember) {
+      return res.status(400).json({ message: "Already a member" });
+    }
 
-    // ✔ 1. Create invite without token first
-    const inviteDoc = await Invite.create({
+    // create invite
+    const invite = await Invite.create({
       workspace: workspaceId,
       email,
       invitedBy: req.user.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      token: "temp",
     });
 
-    // ✔ 2. Create token including inviteId
+    // sign invite token
     const inviteToken = jwt.sign(
       {
+        inviteId: invite._id,
         workspaceId,
         inviteeId: userToInvite._id,
-        inviterId: req.user.id,
-        inviteId: inviteDoc._id,  // FIXED
-        email,
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_INVITE_SECRET,
       { expiresIn: "7d" }
     );
 
-    // ✔ 3. Save token inside Invite
-    inviteDoc.token = inviteToken;
-    await inviteDoc.save();
+    invite.token = inviteToken;
+    await invite.save();
 
     res.status(200).json({
       success: true,
-      message: "Invite sent successfully!",
-      inviteToken,
       inviteLink: `http://localhost:5173/accept-invite/${inviteToken}`,
     });
-
-  } catch (error) {
-    console.error("Invite error:", error);
-    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Invite failed" });
   }
 };
 
 export const acceptInvite = async (req, res) => {
   try {
-    const { token } = req.params;
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const { workspaceId, inviteeId, inviteId } = decoded;
+    const token = decodeURIComponent(req.params.token);
+    if (!token) return res.status(400).json({ message: "Token required" });
+//     👉 Invite acceptance does NOT use authentication
+// 👉 It ONLY checks whether the token was generated by your server
+    const decoded = jwt.verify(token, process.env.JWT_INVITE_SECRET);
+    const { inviteId, workspaceId, inviteeId } = decoded;
 
+    const invite = await Invite.findById(inviteId);
+    if (!invite || invite.status !== "pending") {
+      return res.status(400).json({ message: "Invite invalid or already used" });
+    }
+
+    if (invite.expiresAt < new Date()) {
+      invite.status = "expired";
+      await invite.save();
+      return res.status(400).json({ message: "Invite expired" });
+    }
+     
     const workspace = await Workspace.findById(workspaceId);
-    if (!workspace) return res.status(404).json({ error: "Workspace not found" });
+    if (!workspace) return res.status(404).json({ message: "Workspace not found" });
 
-    // Add member if not already
-    const isAlreadyMember = workspace.members.some(
-      (member) => member.toString() === inviteeId
-    );
-    if (!isAlreadyMember) {
+    if (!workspace.members.includes(inviteeId)) {
       workspace.members.push(inviteeId);
       await workspace.save();
     }
 
-    const invite = await Invite.findById(inviteId);
-    if (invite && invite.status !== "accepted") {
-      invite.status = "accepted";
-      invite.usedAt = new Date();
-      await invite.save();
-    }
+    invite.status = "accepted";
+    invite.usedAt = new Date();
+    await invite.save();
 
-    // Auto-login: create JWT cookie
-    const userToken = jwt.sign({ id: inviteeId }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    // Generate auth token
+    const authToken = jwt.sign(
+      { id: inviteeId },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    res.cookie("token", userToken, {
+    res.cookie("token", authToken, {
       httpOnly: true,
-      secure: false, // set true in production (HTTPS)
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({
-      message: "Invite accepted and logged in",
-      workspace: {
-        id: workspace._id,
-        name: workspace.name,
-      },
-    });
-  } catch (error) {
-    console.error("Accept invite error:", error);
-    if (error.name === "JsonWebTokenError")
-      return res.status(400).json({ error: "Invalid token" });
-    if (error.name === "TokenExpiredError")
-      return res.status(400).json({ error: "Invite link expired" });
-
-    res.status(500).json({ error: "Internal server error" });
+    res.json({ success: true, workspaceId });
+  } catch (err) {
+    console.error("Accept invite error:", err);
+    return res.status(400).json({ message: "Invalid or expired invite" });
   }
 };
-
 
 
 export const getMyInvites = async (req, res) => {
