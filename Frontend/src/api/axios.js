@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: "https://collabsync-1-aq1c.onrender.com/api",
   withCredentials: true, // send cookies
 });
 

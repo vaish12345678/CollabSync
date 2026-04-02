@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import axios from "../api/axios.js";
 import InviteModal from "./InviteModal.jsx";
 
-const socket = io("http://localhost:5000", { withCredentials: true });
+const socket = io("https://collabsync-1-aq1c.onrender.com/", { withCredentials: true });
 
 export default function Workspace() {
   const { id } = useParams();
@@ -22,7 +22,6 @@ export default function Workspace() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
 
-  // Fetch notes, chat & setup socket listeners
   useEffect(() => {
     const fetchNotes = async () => {
       try {
@@ -47,29 +46,36 @@ export default function Workspace() {
     fetchChatMessages();
 
     socket.emit("joinWorkspace", id);
+    //This only sends a message to the server.
 
     socket.on("receiveNoteChange", ({ noteId, content, title }) => {
-      setNotes(prev =>
-        prev.map(note =>
+      setNotes((prev) =>
+        prev.map((note) =>
           note._id === noteId
             ? { ...note, content, title: title || note.title }
-            : note
-        )
+            : note,
+        ),
       );
 
-      setSelectedNote(prev =>
+      setSelectedNote((prev) =>
         prev && prev._id === noteId
           ? { ...prev, content, title: title || prev.title }
-          : prev
+          : prev,
       );
     });
 
     socket.on("newNote", (newNote) => {
-      setNotes(prev => [newNote, ...prev]);
+      setNotes((prev) => [newNote, ...prev]);
     });
+    
+
+// prev = old notes array * prev = [note1, note2]  *newNote = note3 * result = [note3, note1, note2]
+// [newNote, ...prev] means:
+// Add the new note at the top
+// Keep all existing notes
 
     socket.on("receiveChatMessage", (chatData) => {
-      setChatMessages(prev => [...prev, chatData]);
+      setChatMessages((prev) => [...prev, chatData]);
     });
 
     return () => {
@@ -79,93 +85,104 @@ export default function Workspace() {
     };
   }, [id]);
 
-  // Create note
   const createNewNote = async () => {
     try {
       const res = await axios.post("/notes/create", {
         title: "New Note",
         content: "",
-        workspaceId: id
+        workspaceId: id,
       });
+      //         “If there are already 3 notes, and I want to add a 4th note,
+      // and I must keep the previous 3 notes, that’s why I use prev.”
+      //  prev → the previous notes array before adding the new note
 
-      setNotes(prev => [res.data.note, ...prev]);
+      // [res.data.note, ...prev] → creates a new array:
+
+      // Puts the new note first
+
+      // Then adds all the previous notes (...prev) after it
+      setNotes((prev) => [res.data.note, ...prev]);
+
       setSelectedNote(res.data.note);
-
+      // send only to the server
       socket.emit("newNote", {
         workspaceId: id,
-        note: res.data.note
+        note: res.data.note,
       });
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Update note content
   const handleNoteChange = async (content) => {
     if (!selectedNote) return;
+//“It keeps the title and id same, so that’s why we use prev.”
+//     { ...prev, content } → creates a new object prev means prev state 
+// Copies all properties of the note (_id, title, etc.)
+// Replaces only the content with the new value
 
-    setSelectedNote(prev => ({ ...prev, content }));
+    setSelectedNote((prev) => ({ ...prev, content }));
+   //...prev is for copy all prev title and id and add it to new one
 
-    setNotes(prev =>
-      prev.map(note =>
-        note._id === selectedNote._id ? { ...note, content } : note
-      )
+    //this is for the notes list update at the sidebar
+    // Here, { ...note, content } creates a new object for the updated note and { ...note, content } only updates a single note object.
+    setNotes((prev) =>
+      prev.map((note) =>
+        note._id === selectedNote._id ? { ...note, content } : note,
+      ),
     );
 
     try {
       await axios.put(`/notes/${selectedNote._id}`, {
         title: selectedNote.title,
-        content
+        content,
       });
 
       socket.emit("noteChange", {
         workspaceId: id,
         noteId: selectedNote._id,
         content,
-        title: selectedNote.title
+        title: selectedNote.title,
       });
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Update note title
   const handleTitleChange = async (title) => {
     if (!selectedNote) return;
 
-    setSelectedNote(prev => ({ ...prev, title }));
-
-    setNotes(prev =>
-      prev.map(note =>
-        note._id === selectedNote._id ? { ...note, title } : note
-      )
+    setSelectedNote((prev) => ({ ...prev, title }));
+    setNotes((prev) =>
+      prev.map((note) =>
+        note._id === selectedNote._id ? { ...note, title } : note,
+      ),
     );
 
     try {
       await axios.put(`/notes/${selectedNote._id}`, {
-        title,
-        content: selectedNote.content
+        title,//new title from the function parameter 
+        content: selectedNote.content,// as it is current 
       });
 
       socket.emit("noteChange", {
         workspaceId: id,
-        noteId: selectedNote._id,
-        content: selectedNote.content,
-        title
+        noteId: selectedNote._id, // current title don change 
+        content: selectedNote.content, //current content no need to change
+        title, // new title 
       });
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Send chat message
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
     try {
       const res = await axios.post("/chat/send", {
         workspaceId: id,
-        message: newMessage
+        message: newMessage,
       });
 
       socket.emit("chatMessage", {
@@ -173,7 +190,7 @@ export default function Workspace() {
         user: res.data.user,
         message: res.data.message,
         _id: res.data._id,
-        createdAt: res.data.createdAt
+        createdAt: res.data.createdAt,
       });
 
       setNewMessage("");
@@ -182,16 +199,14 @@ export default function Workspace() {
     }
   };
 
-  // Invite collaborator
   const inviteCollaborator = async () => {
     if (!inviteEmail.trim()) return alert("Enter an email");
 
     setInviteLoading(true);
     try {
-      const res = await axios.post(
-        `/invite/workspace/${id}/invite`,
-        { email: inviteEmail }
-      );
+      const res = await axios.post(`/invite/workspace/${id}/invite`, {
+        email: inviteEmail,
+      });
 
       setInviteLink(res.data.inviteLink);
       setShowInviteModal(false);
@@ -207,14 +222,14 @@ export default function Workspace() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Invite Modal */}
       {showLinkModal && (
-        <InviteModal link={inviteLink} onClose={() => setShowLinkModal(false)} />
+        <InviteModal
+          link={inviteLink}
+          onClose={() => setShowLinkModal(false)}
+        />
       )}
 
-      {/* Notes Sidebar */}
       <div className="w-80 bg-white border-r border-gray-200 shadow-sm flex flex-col">
-        {/* Sidebar Header */}
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -237,29 +252,27 @@ export default function Workspace() {
             </div>
           </div>
         </div>
-
-        {/* Notes List */}
         <div className="flex-1 overflow-y-auto p-4">
-          {notes.map(note => (
+          {notes.map((note) => (
             <div
               key={note._id}
               onClick={() => setSelectedNote(note)}
               className={`p-4 mb-3 rounded-xl cursor-pointer transition-all duration-200 border ${
                 selectedNote?._id === note._id
-                  ? 'bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 shadow-sm'
-                  : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200'
+                  ? "bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 shadow-sm"
+                  : "bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200"
               }`}
             >
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-semibold text-gray-800 truncate flex-1">
-                  {note.title || 'Untitled Note'}
+                  {note.title || "Untitled Note"}
                 </h3>
                 {selectedNote?._id === note._id && (
                   <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                 )}
               </div>
               <p className="text-sm text-gray-600 line-clamp-2 mb-3 leading-relaxed">
-                {note.content || 'Empty note...'}
+                {note.content || "Empty note..."}
               </p>
               <div className="flex justify-between items-center text-xs text-gray-500">
                 <span>{new Date(note.updatedAt).toLocaleDateString()}</span>
@@ -272,7 +285,10 @@ export default function Workspace() {
           {notes.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-500 mb-2">No notes yet</p>
-              <button onClick={createNewNote} className="text-purple-600 hover:text-purple-700 font-medium">
+              <button
+                onClick={createNewNote}
+                className="text-purple-600 hover:text-purple-700 font-medium"
+              >
                 Create your first note
               </button>
             </div>
@@ -280,7 +296,6 @@ export default function Workspace() {
         </div>
       </div>
 
-      {/* Note Editor */}
       <div className="flex-1 flex flex-col">
         {selectedNote ? (
           <>
@@ -292,7 +307,8 @@ export default function Workspace() {
                 placeholder="Note title..."
               />
               <div className="text-sm text-gray-500">
-                Last edited {new Date(selectedNote.updatedAt).toLocaleDateString()}
+                Last edited{" "}
+                {new Date(selectedNote.updatedAt).toLocaleDateString()}
               </div>
             </div>
 
@@ -308,7 +324,9 @@ export default function Workspace() {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8">
             <h3 className="text-xl font-medium mb-2">Select a note</h3>
-            <p className="text-gray-500 mb-6">Choose a note from the sidebar or create a new one</p>
+            <p className="text-gray-500 mb-6">
+              Choose a note from the sidebar or create a new one
+            </p>
             <button
               onClick={createNewNote}
               className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-600 hover:to-indigo-700 transition-all duration-200"
@@ -319,27 +337,36 @@ export default function Workspace() {
         )}
       </div>
 
-      {/* Chat Sidebar */}
       <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
         <div className="p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-800">Team Chat</h2>
-          <p className="text-sm text-gray-500 mt-1">Collaborate with your team</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Collaborate with your team
+          </p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
           {chatMessages.map((msg, idx) => {
-            const userName = msg.user?.name ||
-                             msg.user?.email?.split('@')[0] ||
-                             (typeof msg.user === 'string' ? msg.user : 'Unknown User');
+            const userName =
+              msg.user?.name ||
+              msg.user?.email?.split("@")[0] ||
+              (typeof msg.user === "string" ? msg.user : "Unknown User");
             const messageContent = msg.message || msg.content;
             const timestamp = msg.createdAt || msg.timestamp;
 
             return (
-              <div key={msg._id || idx} className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div
+                key={msg._id || idx}
+                className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-100"
+              >
                 <div className="flex justify-between items-start mb-2">
-                  <span className="font-semibold text-purple-600">{userName}</span>
+                  <span className="font-semibold text-purple-600">
+                    {userName}
+                  </span>
                   <span className="text-xs text-gray-500">
-                    {timestamp ? new Date(timestamp).toLocaleTimeString() : 'Just now'}
+                    {timestamp
+                      ? new Date(timestamp).toLocaleTimeString()
+                      : "Just now"}
                   </span>
                 </div>
                 <div className="text-gray-700">{messageContent}</div>
@@ -354,7 +381,7 @@ export default function Workspace() {
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
               className="flex-1 border border-gray-300 rounded-lg p-3 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200"
               placeholder="Type a message..."
             />
@@ -368,7 +395,6 @@ export default function Workspace() {
         </div>
       </div>
 
-      {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg w-96 shadow-xl">
@@ -376,7 +402,7 @@ export default function Workspace() {
             <input
               type="email"
               value={inviteEmail}
-              onChange={e => setInviteEmail(e.target.value)}
+              onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="Enter email"
               className="w-full border p-3 rounded-lg mb-4"
             />
